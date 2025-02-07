@@ -2,7 +2,7 @@ from astrbot.api.event import filter, AstrMessageEvent, MessageEventResult
 from astrbot.api.star import Context, Star, register
 import requests
 
-@register("Astrbot_Plugin_HAOS_scwunai", "scwunai", "获取HomeAssistant的温湿度传感器数据的插件", "1.0.0", "https://github.com/scwunai/Astrbot_Plugin_HAOS_scwunai")
+@register("Astrbot_Plugin_HAOS_scwunai", "scwunai", "一个获取HomeAssistant的温湿度传感器数据的插件", "1.0.0", "https://github.com/scwunai/Astrbot_Plugin_HAOS_scwunai")
 class SensorDataPlugin(Star):
     def __init__(self, context: Context, config: dict):
         super().__init__(context)
