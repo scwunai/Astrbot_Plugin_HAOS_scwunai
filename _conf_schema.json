@@ -1,0 +1,18 @@
+{
+    "home_assistant_url": {
+        "description": "Home Assistant 的地址",
+        "type": "string"
+    },
+    "token": {
+        "description": "Home Assistant 的长效访问令牌",
+        "type": "string"
+    },
+    "temperature_sensor_id": {
+        "description": "温度传感器的 entity_id",
+        "type": "string"
+    },
+    "humidity_sensor_id": {
+        "description": "湿度传感器的 entity_id",
+        "type": "string"
+    }
+}
