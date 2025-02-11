@@ -14,5 +14,21 @@
     "humidity_sensor_id": {
         "description": "湿度传感器的 entity_id",
         "type": "string"
+    },
+    "low_threshold": {
+        "description": "温度过低的阈值 (°C)",
+        "type": "float",
+        "default": 10
+    },
+    "high_threshold": {
+        "description": "温度过高的阈值 (°C)",
+        "type": "float",
+        "default": 30
+    },
+    "check_interval": {
+        "description": "检查温度的时间间隔",
+        "type": "int",
+        "hint": "请填写需要检查温度的时间间隔，单位：秒",
+        "default": 10
     }
 }

@@ -1,6 +1,6 @@
 name: Astrbot_Plugin_HAOS_scwunai # 这是你的插件的唯一识别名。
 desc: 这是简单的请求HAOSApi以获取HomeAssistant内注册的温湿度传感器数据的插件。输入/haoshelp获取帮助。 # 插件简短描述
 help: 输入 /haoshelp 查看关键词回复帮助。 # 插件的帮助信息
-version: v1.0.0 # 插件版本号。格式：v1.1.1 或者 v1.1
+version: v1.0.1 # 插件版本号。格式：v1.1.1 或者 v1.1
 author: scwunai # 作者
 repo: https://github.com/scwunai/Astrbot_Plugin_HAOS_scwunai # 插件的仓库地址
