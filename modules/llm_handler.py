@@ -12,10 +12,7 @@ from typing import TYPE_CHECKING, Optional
 if TYPE_CHECKING:
     from astrbot.api.event import AstrMessageEvent
     from astrbot.api.provider import ProviderRequest, LLMResponse
-<<<<<<< HEAD
-=======
     from astrbot.core.persona_mgr import PersonaManager
->>>>>>> fe2ad95 (添加LLM人格设置，刷版本号到2.2.0)
     from main import SmartHomePlugin
 
 logger = logging.getLogger(__name__)
@@ -50,8 +47,6 @@ class LLMHandler:
             plugin: 插件实例
         """
         self.plugin = plugin
-<<<<<<< HEAD
-=======
         self.persona_manager: Optional["PersonaManager"] = None
 
     def set_persona_manager(self, persona_manager: "PersonaManager"):
@@ -109,7 +104,6 @@ class LLMHandler:
         except Exception as e:
             logger.error(f"获取人格提示词失败: {e}")
             return None
->>>>>>> fe2ad95 (添加LLM人格设置，刷版本号到2.2.0)
 
     def get_system_prompt(self) -> str:
         """
@@ -162,9 +156,6 @@ class LLMHandler:
 [打开设备:客厅灯]
 [打开设备:卧室灯]"""
 
-<<<<<<< HEAD
-    def get_response_prompt(self, user_message: str, collected_data: dict, executed_actions: list[dict]) -> str:
-=======
     def get_response_prompt(
         self,
         user_message: str,
@@ -172,7 +163,6 @@ class LLMHandler:
         executed_actions: list[dict],
         persona_prompt: Optional[str] = None
     ) -> str:
->>>>>>> fe2ad95 (添加LLM人格设置，刷版本号到2.2.0)
         """
         生成用于 LLM 生成自然回复的提示词
 
@@ -180,10 +170,7 @@ class LLMHandler:
             user_message: 用户原始消息
             collected_data: 收集的数据（天气、传感器等）
             executed_actions: 已执行的操作列表
-<<<<<<< HEAD
-=======
             persona_prompt: 人格提示词（可选）
->>>>>>> fe2ad95 (添加LLM人格设置，刷版本号到2.2.0)
 
         Returns:
             提示词
@@ -217,9 +204,6 @@ class LLMHandler:
             status = "成功" if success else "失败"
             actions_context.append(f"- {action_type}: {action_detail} ({status})")
 
-<<<<<<< HEAD
-        prompt = f"""用户消息：{user_message}
-=======
         # 构建人格提示部分
         persona_section = ""
         if persona_prompt:
@@ -231,7 +215,6 @@ class LLMHandler:
 """
 
         prompt = f"""{persona_section}用户消息：{user_message}
->>>>>>> fe2ad95 (添加LLM人格设置，刷版本号到2.2.0)
 
 我已为您收集了以下数据：
 {chr(10).join(data_context) if data_context else '暂无相关数据'}
