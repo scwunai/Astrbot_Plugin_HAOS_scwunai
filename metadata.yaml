@@ -1,4 +1,8 @@
 name: astrbot_plugin_HAOS_scwunai
+<<<<<<< HEAD
+=======
+display_name: AI Home Assistant
+>>>>>>> 3575074 (添加DisplayName)
 desc: 智能家居助手：天气查询、传感器监控、智能告警。支持自然语言交互。
 help: 输入 /haoshelp 查看帮助。
 version: v2.1.0
