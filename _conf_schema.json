@@ -1,34 +1,454 @@
 {
     "home_assistant_url": {
-        "description": "Home Assistant 的地址",
-        "type": "string"
+        "description": "Home Assistant 地址",
+        "type": "string",
+        "hint": "例如: http://homeassistant.local:8123"
     },
-    "token": {
-        "description": "Home Assistant 的长效访问令牌",
-        "type": "string"
+    "ha_token": {
+        "description": "Home Assistant 长效访问令牌",
+        "type": "string",
+        "hint": "在 HA 后台点击用户名-安全-长期访问令牌处创建"
     },
-    "temperature_sensor_id": {
-        "description": "温度传感器的 entity_id",
-        "type": "string"
+    "sensors": {
+        "description": "传感器配置列表",
+        "type": "template_list",
+        "templates": {
+            "temperature": {
+                "name": "温度传感器",
+                "hint": "温度传感器配置",
+                "items": {
+                    "name": {
+                        "description": "传感器名称",
+                        "type": "string",
+                        "hint": "如：客厅温度"
+                    },
+                    "entity_id": {
+                        "description": "传感器实体ID",
+                        "type": "string",
+                        "hint": "如：sensor.living_room_temperature"
+                    },
+                    "unit": {
+                        "description": "单位",
+                        "type": "string",
+                        "default": "°C"
+                    },
+                    "low_threshold": {
+                        "description": "低温阈值(°C)",
+                        "type": "float",
+                        "default": 10
+                    },
+                    "high_threshold": {
+                        "description": "高温阈值(°C)",
+                        "type": "float",
+                        "default": 30
+                    },
+                    "enabled": {
+                        "description": "是否启用监控",
+                        "type": "bool",
+                        "default": true
+                    }
+                }
+            },
+            "humidity": {
+                "name": "湿度传感器",
+                "hint": "湿度传感器配置",
+                "items": {
+                    "name": {
+                        "description": "传感器名称",
+                        "type": "string",
+                        "hint": "如：客厅湿度"
+                    },
+                    "entity_id": {
+                        "description": "传感器实体ID",
+                        "type": "string",
+                        "hint": "如：sensor.living_room_humidity"
+                    },
+                    "unit": {
+                        "description": "单位",
+                        "type": "string",
+                        "default": "%"
+                    },
+                    "low_threshold": {
+                        "description": "低湿阈值(%)",
+                        "type": "float",
+                        "default": 20
+                    },
+                    "high_threshold": {
+                        "description": "高湿阈值(%)",
+                        "type": "float",
+                        "default": 80
+                    },
+                    "enabled": {
+                        "description": "是否启用监控",
+                        "type": "bool",
+                        "default": true
+                    }
+                }
+            },
+            "co2": {
+                "name": "二氧化碳传感器",
+                "hint": "CO2浓度传感器配置",
+                "items": {
+                    "name": {
+                        "description": "传感器名称",
+                        "type": "string",
+                        "hint": "如：室内CO2"
+                    },
+                    "entity_id": {
+                        "description": "传感器实体ID",
+                        "type": "string",
+                        "hint": "如：sensor.co2"
+                    },
+                    "unit": {
+                        "description": "单位",
+                        "type": "string",
+                        "default": "ppm"
+                    },
+                    "low_threshold": {
+                        "description": "低浓度阈值(ppm)",
+                        "type": "float",
+                        "default": null
+                    },
+                    "high_threshold": {
+                        "description": "高浓度阈值(ppm)",
+                        "type": "float",
+                        "default": 1000
+                    },
+                    "enabled": {
+                        "description": "是否启用监控",
+                        "type": "bool",
+                        "default": true
+                    }
+                }
+            },
+            "formaldehyde": {
+                "name": "甲醛传感器",
+                "hint": "甲醛浓度传感器配置",
+                "items": {
+                    "name": {
+                        "description": "传感器名称",
+                        "type": "string",
+                        "hint": "如：室内甲醛"
+                    },
+                    "entity_id": {
+                        "description": "传感器实体ID",
+                        "type": "string",
+                        "hint": "如：sensor.formaldehyde"
+                    },
+                    "unit": {
+                        "description": "单位",
+                        "type": "string",
+                        "default": "mg/m³"
+                    },
+                    "low_threshold": {
+                        "description": "低浓度阈值",
+                        "type": "float",
+                        "default": null
+                    },
+                    "high_threshold": {
+                        "description": "高浓度阈值(mg/m³)",
+                        "type": "float",
+                        "default": 0.08
+                    },
+                    "enabled": {
+                        "description": "是否启用监控",
+                        "type": "bool",
+                        "default": true
+                    }
+                }
+            },
+            "pm25": {
+                "name": "PM2.5传感器",
+                "hint": "PM2.5浓度传感器配置",
+                "items": {
+                    "name": {
+                        "description": "传感器名称",
+                        "type": "string",
+                        "hint": "如：室内PM2.5"
+                    },
+                    "entity_id": {
+                        "description": "传感器实体ID",
+                        "type": "string",
+                        "hint": "如：sensor.pm25"
+                    },
+                    "unit": {
+                        "description": "单位",
+                        "type": "string",
+                        "default": "μg/m³"
+                    },
+                    "low_threshold": {
+                        "description": "低浓度阈值",
+                        "type": "float",
+                        "default": null
+                    },
+                    "high_threshold": {
+                        "description": "高浓度阈值(μg/m³)",
+                        "type": "float",
+                        "default": 75
+                    },
+                    "enabled": {
+                        "description": "是否启用监控",
+                        "type": "bool",
+                        "default": true
+                    }
+                }
+            },
+            "pm10": {
+                "name": "PM10传感器",
+                "hint": "PM10浓度传感器配置",
+                "items": {
+                    "name": {
+                        "description": "传感器名称",
+                        "type": "string",
+                        "hint": "如：室内PM10"
+                    },
+                    "entity_id": {
+                        "description": "传感器实体ID",
+                        "type": "string",
+                        "hint": "如：sensor.pm10"
+                    },
+                    "unit": {
+                        "description": "单位",
+                        "type": "string",
+                        "default": "μg/m³"
+                    },
+                    "low_threshold": {
+                        "description": "低浓度阈值",
+                        "type": "float",
+                        "default": null
+                    },
+                    "high_threshold": {
+                        "description": "高浓度阈值(μg/m³)",
+                        "type": "float",
+                        "default": 150
+                    },
+                    "enabled": {
+                        "description": "是否启用监控",
+                        "type": "bool",
+                        "default": true
+                    }
+                }
+            },
+            "power": {
+                "name": "功率传感器",
+                "hint": "设备功率传感器配置",
+                "items": {
+                    "name": {
+                        "description": "传感器名称",
+                        "type": "string",
+                        "hint": "如：空调功率"
+                    },
+                    "entity_id": {
+                        "description": "传感器实体ID",
+                        "type": "string",
+                        "hint": "如：sensor.ac_power"
+                    },
+                    "unit": {
+                        "description": "单位",
+                        "type": "string",
+                        "default": "W"
+                    },
+                    "low_threshold": {
+                        "description": "低功率阈值(W)",
+                        "type": "float",
+                        "default": null
+                    },
+                    "high_threshold": {
+                        "description": "高功率阈值(W)",
+                        "type": "float",
+                        "default": null
+                    },
+                    "enabled": {
+                        "description": "是否启用监控",
+                        "type": "bool",
+                        "default": true
+                    }
+                }
+            },
+            "generic": {
+                "name": "通用传感器",
+                "hint": "其他类型传感器配置",
+                "items": {
+                    "name": {
+                        "description": "传感器名称",
+                        "type": "string",
+                        "hint": "如：光照强度"
+                    },
+                    "entity_id": {
+                        "description": "传感器实体ID",
+                        "type": "string",
+                        "hint": "如：sensor.illuminance"
+                    },
+                    "unit": {
+                        "description": "单位",
+                        "type": "string",
+                        "default": ""
+                    },
+                    "low_threshold": {
+                        "description": "低阈值",
+                        "type": "float",
+                        "default": null
+                    },
+                    "high_threshold": {
+                        "description": "高阈值",
+                        "type": "float",
+                        "default": null
+                    },
+                    "enabled": {
+                        "description": "是否启用监控",
+                        "type": "bool",
+                        "default": true
+                    }
+                }
+            }
+        },
+        "default": []
     },
-    "humidity_sensor_id": {
-        "description": "湿度传感器的 entity_id",
-        "type": "string"
+    "switches": {
+        "description": "开关设备配置列表",
+        "type": "template_list",
+        "templates": {
+            "light": {
+                "name": "灯",
+                "hint": "灯光开关配置",
+                "items": {
+                    "name": {
+                        "description": "设备名称",
+                        "type": "string",
+                        "hint": "如：客厅灯"
+                    },
+                    "entity_id": {
+                        "description": "设备实体ID",
+                        "type": "string",
+                        "hint": "如：light.living_room"
+                    }
+                }
+            },
+            "ac": {
+                "name": "空调",
+                "hint": "空调控制配置",
+                "items": {
+                    "name": {
+                        "description": "设备名称",
+                        "type": "string",
+                        "hint": "如：客厅空调"
+                    },
+                    "entity_id": {
+                        "description": "设备实体ID",
+                        "type": "string",
+                        "hint": "如：climate.living_room_ac"
+                    },
+                    "power_sensor": {
+                        "description": "关联功率传感器ID",
+                        "type": "string",
+                        "hint": "可选，如：sensor.ac_power"
+                    },
+                    "min_temp": {
+                        "description": "最低温度(°C)",
+                        "type": "int",
+                        "default": 16
+                    },
+                    "max_temp": {
+                        "description": "最高温度(°C)",
+                        "type": "int",
+                        "default": 30
+                    }
+                }
+            },
+            "fan": {
+                "name": "电扇",
+                "hint": "电扇开关配置",
+                "items": {
+                    "name": {
+                        "description": "设备名称",
+                        "type": "string",
+                        "hint": "如：卧室电扇"
+                    },
+                    "entity_id": {
+                        "description": "设备实体ID",
+                        "type": "string",
+                        "hint": "如：fan.bedroom 或 switch.fan"
+                    },
+                    "power_sensor": {
+                        "description": "关联功率传感器ID",
+                        "type": "string",
+                        "hint": "可选，如：sensor.fan_power"
+                    }
+                }
+            },
+            "computer": {
+                "name": "电脑",
+                "hint": "电脑开关配置",
+                "items": {
+                    "name": {
+                        "description": "设备名称",
+                        "type": "string",
+                        "hint": "如：台式机"
+                    },
+                    "entity_id": {
+                        "description": "设备实体ID",
+                        "type": "string",
+                        "hint": "如：switch.computer"
+                    }
+                }
+            },
+            "generic": {
+                "name": "通用开关",
+                "hint": "其他开关设备配置",
+                "items": {
+                    "name": {
+                        "description": "设备名称",
+                        "type": "string",
+                        "hint": "如：插座"
+                    },
+                    "entity_id": {
+                        "description": "设备实体ID",
+                        "type": "string",
+                        "hint": "如：switch.outlet"
+                    }
+                }
+            }
+        },
+        "default": []
     },
-    "low_threshold": {
-        "description": "温度过低的阈值 (°C)",
-        "type": "float",
-        "default": 10
+    "weather_push_time": {
+        "description": "天气推送时间",
+        "type": "string",
+        "default": "07:00",
+        "hint": "格式: HH:MM，如 07:00"
     },
-    "high_threshold": {
-        "description": "温度过高的阈值 (°C)",
-        "type": "float",
-        "default": 30
-    },
-    "check_interval": {
-        "description": "检查温度的时间间隔",
+    "sensor_check_interval": {
+        "description": "传感器检查间隔(秒)",
         "type": "int",
-        "hint": "请填写需要检查温度的时间间隔，单位：秒",
-        "default": 10
+        "default": 300,
+        "hint": "建议 300-600 秒"
+    },
+    "enable_sensor_alert": {
+        "description": "启用传感器异常告警",
+        "type": "bool",
+        "default": true
+    },
+    "enable_weather_push": {
+        "description": "启用每日天气推送",
+        "type": "bool",
+        "default": true
+    },
+    "admin_users": {
+        "description": "管理员用户ID列表",
+        "type": "list",
+        "hint": "只有管理员才能查询传感器和控制设备，留空则所有人可用。格式：平台名:用户ID，如 qq:12345678",
+        "default": []
+    },
+    "admin_groups": {
+        "description": "管理员群组ID列表",
+        "type": "list",
+        "hint": "群内所有成员都可查询传感器和控制设备，留空则不限制。格式：平台名:群ID，如 qq:87654321",
+        "default": []
+    },
+    "public_commands": {
+        "description": "公开指令列表",
+        "type": "list",
+        "hint": "无需管理员权限即可使用的指令，如 weather, haoshelp",
+        "default": ["weather", "set_location", "subscribe_weather", "unsubscribe_weather", "haoshelp"]
     }
 }
