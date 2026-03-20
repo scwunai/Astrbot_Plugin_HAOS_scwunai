@@ -89,8 +89,6 @@ Astrbot 的 HomeAssistant 智能家居集成插件，支持天气查询、传感
 | `sensor_check_interval` | `300` | 传感器检查间隔（秒） |
 | `enable_sensor_alert` | `true` | 是否启用传感器异常告警 |
 | `enable_weather_push` | `true` | 是否启用每日天气推送 |
-<<<<<<< HEAD
-=======
 | `enable_persona` | `false` | 是否启用 AstrBot 人格集成 |
 | `persona_name` | `""` | 指定使用的人格名称，留空使用默认人格 |
 
@@ -102,7 +100,6 @@ Astrbot 的 HomeAssistant 智能家居集成插件，支持天气查询、传感
 1. 在 AstrBot 管理面板 → 人格管理中创建或查看人格
 2. 在插件配置中启用 `enable_persona`
 3. （可选）在 `persona_name` 中指定要使用的人格名称，留空则使用默认人格
->>>>>>> fe2ad95 (添加LLM人格设置，刷版本号到2.2.0)
 
 ## 指令列表
 
