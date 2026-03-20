@@ -26,7 +26,7 @@ logger = logging.getLogger(__name__)
     "Astrbot_Plugin_HAOS_scwunai",
     "scwunai",
     "智能家居助手：天气查询、传感器监控、智能告警",
-    "2.0.0",
+    "2.1.0",
     "https://github.com/scwunai/Astrbot_Plugin_HAOS_scwunai",
 )
 class SmartHomePlugin(Star):
