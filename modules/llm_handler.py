@@ -12,6 +12,10 @@ from typing import TYPE_CHECKING, Optional
 if TYPE_CHECKING:
     from astrbot.api.event import AstrMessageEvent
     from astrbot.api.provider import ProviderRequest, LLMResponse
+<<<<<<< HEAD
+=======
+    from astrbot.core.persona_mgr import PersonaManager
+>>>>>>> fe2ad95 (添加LLM人格设置，刷版本号到2.2.0)
     from main import SmartHomePlugin
 
 logger = logging.getLogger(__name__)
@@ -46,6 +50,66 @@ class LLMHandler:
             plugin: 插件实例
         """
         self.plugin = plugin
+<<<<<<< HEAD
+=======
+        self.persona_manager: Optional["PersonaManager"] = None
+
+    def set_persona_manager(self, persona_manager: "PersonaManager"):
+        """
+        设置人格管理器
+
+        Args:
+            persona_manager: AstrBot 人格管理器实例
+        """
+        self.persona_manager = persona_manager
+
+    async def get_persona_prompt(
+        self,
+        umo: str = None,
+        persona_name: str = None
+    ) -> Optional[str]:
+        """
+        获取人格提示词
+
+        Args:
+            umo: 消息会话来源 ID，用于获取会话配置
+            persona_name: 指定的人格名称，如果提供则优先使用
+
+        Returns:
+            人格提示词，如果未找到则返回 None
+        """
+        if not self.persona_manager:
+            return None
+
+        try:
+            # 如果指定了人格名称，直接查找
+            if persona_name:
+                persona = next(
+                    (p for p in self.persona_manager.personas_v3 if p["name"] == persona_name),
+                    None
+                )
+                if persona:
+                    return persona.get("prompt")
+                # 尝试从数据库获取
+                try:
+                    db_persona = await self.persona_manager.get_persona(persona_name)
+                    if db_persona:
+                        return db_persona.system_prompt
+                except ValueError:
+                    pass
+                logger.warning(f"未找到指定的人格: {persona_name}")
+                return None
+
+            # 否则获取默认人格
+            default_persona = await self.persona_manager.get_default_persona_v3(umo)
+            if default_persona and default_persona.get("name") != "default":
+                return default_persona.get("prompt")
+
+            return None
+        except Exception as e:
+            logger.error(f"获取人格提示词失败: {e}")
+            return None
+>>>>>>> fe2ad95 (添加LLM人格设置，刷版本号到2.2.0)
 
     def get_system_prompt(self) -> str:
         """
@@ -98,7 +162,17 @@ class LLMHandler:
 [打开设备:客厅灯]
 [打开设备:卧室灯]"""
 
+<<<<<<< HEAD
     def get_response_prompt(self, user_message: str, collected_data: dict, executed_actions: list[dict]) -> str:
+=======
+    def get_response_prompt(
+        self,
+        user_message: str,
+        collected_data: dict,
+        executed_actions: list[dict],
+        persona_prompt: Optional[str] = None
+    ) -> str:
+>>>>>>> fe2ad95 (添加LLM人格设置，刷版本号到2.2.0)
         """
         生成用于 LLM 生成自然回复的提示词
 
@@ -106,6 +180,10 @@ class LLMHandler:
             user_message: 用户原始消息
             collected_data: 收集的数据（天气、传感器等）
             executed_actions: 已执行的操作列表
+<<<<<<< HEAD
+=======
+            persona_prompt: 人格提示词（可选）
+>>>>>>> fe2ad95 (添加LLM人格设置，刷版本号到2.2.0)
 
         Returns:
             提示词
@@ -139,7 +217,21 @@ class LLMHandler:
             status = "成功" if success else "失败"
             actions_context.append(f"- {action_type}: {action_detail} ({status})")
 
+<<<<<<< HEAD
         prompt = f"""用户消息：{user_message}
+=======
+        # 构建人格提示部分
+        persona_section = ""
+        if persona_prompt:
+            persona_section = f"""
+【人格设定】
+{persona_prompt}
+
+请以上述人格设定回答用户的问题，保持人格的风格和语气。
+"""
+
+        prompt = f"""{persona_section}用户消息：{user_message}
+>>>>>>> fe2ad95 (添加LLM人格设置，刷版本号到2.2.0)
 
 我已为您收集了以下数据：
 {chr(10).join(data_context) if data_context else '暂无相关数据'}

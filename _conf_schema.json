@@ -450,5 +450,17 @@
         "type": "list",
         "hint": "无需管理员权限即可使用的指令，如 weather, haoshelp",
         "default": ["weather", "set_location", "subscribe_weather", "unsubscribe_weather", "haoshelp"]
+    },
+    "enable_persona": {
+        "description": "启用 AstrBot 人格集成",
+        "type": "bool",
+        "default": false,
+        "hint": "启用后，LLM 回复将使用 AstrBot 中配置的人格风格"
+    },
+    "persona_name": {
+        "description": "指定使用的人格名称",
+        "type": "string",
+        "default": "",
+        "hint": "留空则使用 AstrBot 默认人格。可在 AstrBot 管理面板-人格管理中查看人格列表"
     }
 }
