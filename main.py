@@ -26,7 +26,7 @@ logger = logging.getLogger(__name__)
     "Astrbot_Plugin_HAOS_scwunai",
     "scwunai",
     "智能家居助手：天气查询、传感器监控、智能告警",
-    "2.2.0",
+    "2.1.0",
     "https://github.com/scwunai/Astrbot_Plugin_HAOS_scwunai",
 )
 class SmartHomePlugin(Star):
@@ -66,8 +66,6 @@ class SmartHomePlugin(Star):
         # LLM 处理器
         self.llm_handler = LLMHandler(self)
 
-<<<<<<< HEAD
-=======
         # 设置人格管理器（如果启用人格集成）
         if self.config.get("enable_persona", False):
             try:
@@ -76,7 +74,6 @@ class SmartHomePlugin(Star):
             except Exception as e:
                 logger.warning(f"设置人格管理器失败: {e}")
 
->>>>>>> fe2ad95 (添加LLM人格设置，刷版本号到2.2.0)
         # 定时任务管理器
         self.scheduler_mgr = SchedulerManager(self)
 
@@ -649,10 +646,6 @@ class SmartHomePlugin(Star):
             if not provider_id:
                 return None
 
-<<<<<<< HEAD
-            # 生成提示词
-            prompt = self.llm_handler.get_response_prompt(user_message, collected_data, executed_actions)
-=======
             # 获取人格提示词（如果启用）
             persona_prompt = None
             if self.config.get("enable_persona", False):
@@ -669,7 +662,6 @@ class SmartHomePlugin(Star):
                 executed_actions,
                 persona_prompt=persona_prompt
             )
->>>>>>> fe2ad95 (添加LLM人格设置，刷版本号到2.2.0)
 
             # 调用 LLM
             llm_resp = await self.context.llm_generate(
