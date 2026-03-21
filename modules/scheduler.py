@@ -130,19 +130,29 @@ class SchedulerManager:
                     if not adcode:
                         continue
 
-                    weather_data = await self.plugin.weather_api.get_weather(adcode)
+                    # 获取天气数据（包含生活指数）
+                    weather_data = await self.plugin.weather_api.get_weather(
+                        adcode, extended=True, forecast=True, hourly=False, indices=True
+                    )
                     if not weather_data:
                         continue
 
                     # 生成天气摘要
                     summary = self.plugin.weather_api.format_weather_summary(weather_data)
 
+                    # 生成生活指数摘要
+                    indices_summary = self._format_life_indices(weather_data.get("life_indices", {}))
+
                     # 发送消息
                     umo = sub_info.get("umo")
                     if umo:
                         from astrbot.api.event import MessageChain
 
-                        message_chain = MessageChain().message(f"☀️ 早安！今日天气：\n{summary}")
+                        message_parts = [f"☀️ 早安！今日天气：\n{summary}"]
+                        if indices_summary:
+                            message_parts.append(f"\n📋 生活指数：\n{indices_summary}")
+
+                        message_chain = MessageChain().message("\n".join(message_parts))
                         await self.plugin.context.send_message(umo, message_chain)
 
                 except Exception as e:
@@ -152,6 +162,39 @@ class SchedulerManager:
 
         except Exception as e:
             logger.error(f"天气推送任务执行失败: {e}")
+
+    def _format_life_indices(self, indices: dict) -> str:
+        """
+        格式化生活指数
+
+        Args:
+            indices: 生活指数数据
+
+        Returns:
+            格式化的生活指数文本
+        """
+        if not indices:
+            return ""
+
+        # 选择最常用的生活指数
+        important_indices = [
+            ("clothing", "穿衣", "👕"),
+            ("umbrella", "雨伞", "☂️"),
+            ("uv", "紫外线", "🌞"),
+            ("exercise", "运动", "🏃"),
+            ("car_wash", "洗车", "🚗"),
+            ("cold_risk", "感冒", "🤧"),
+        ]
+
+        parts = []
+        for key, name, emoji in important_indices:
+            if key in indices:
+                index_data = indices[key]
+                level = index_data.get("level", "")
+                brief = index_data.get("brief", "")
+                parts.append(f"{emoji} {name}：{level}（{brief}）")
+
+        return "\n".join(parts) if parts else ""
 
     async def check_sensors_and_alert(self):
         """检查传感器并告警"""

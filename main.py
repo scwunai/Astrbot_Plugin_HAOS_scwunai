@@ -4,6 +4,7 @@
 集成天气查询、传感器监控、智能告警功能
 """
 
+import asyncio
 import logging
 from pathlib import Path
 from typing import Optional
@@ -26,7 +27,7 @@ logger = logging.getLogger(__name__)
     "Astrbot_Plugin_HAOS_scwunai",
     "scwunai",
     "智能家居助手：天气查询、传感器监控、智能告警",
-    "2.1.0",
+    "2.2.1",
     "https://github.com/scwunai/Astrbot_Plugin_HAOS_scwunai",
 )
 class SmartHomePlugin(Star):
@@ -141,7 +142,7 @@ class SmartHomePlugin(Star):
 
     def _get_permission_denied_message(self) -> str:
         """获取权限拒绝消息"""
-        return "⚠️ 您没有权限执行此操作，请联系管理员"
+        return "您没有权限执行此操作，请联系管理员"
 
     # ==================== 用户位置管理 ====================
 
@@ -207,14 +208,14 @@ class SmartHomePlugin(Star):
             return
 
         await self.scheduler_mgr.add_weather_subscriber(user_id, umo)
-        yield event.plain_result("✅ 已成功订阅每日天气推送！")
+        yield event.plain_result("已成功订阅每日天气推送！")
 
     @filter.command("unsubscribe_weather")
     async def unsubscribe_weather(self, event: AstrMessageEvent):
         """取消天气订阅"""
         user_id = event.get_sender_id()
         await self.scheduler_mgr.remove_weather_subscriber(user_id)
-        yield event.plain_result("✅ 已取消天气推送订阅。")
+        yield event.plain_result("已取消天气推送订阅。")
 
     @filter.command("sensor")
     async def get_sensor(self, event: AstrMessageEvent):
@@ -242,7 +243,7 @@ class SmartHomePlugin(Star):
                 continue
             name = sensor.get("name", sensor.get("entity_id", "未命名"))
             entity_id = sensor.get("entity_id", "")
-            enabled = "✅" if sensor.get("enabled", True) else "❌"
+            enabled = "√" if sensor.get("enabled", True) else "❌"
             lines.append(f"{i}. {name} ({entity_id}) {enabled}")
 
         yield event.plain_result("\n".join(lines))
@@ -406,9 +407,42 @@ class SmartHomePlugin(Star):
         collected_data = {}
         executed_actions = []
 
+        # 分离可并行执行的意图和需要顺序执行的意图
+        # 数据查询类意图可以并行执行
+        parallel_intents = {"weather_query", "hourly_weather", "sensor_query", "temperature_query",
+                           "humidity_query", "air_quality", "device_query"}
+        sequential_intents = {"set_location", "turn_on", "turn_off", "ac_control", "ac_temp",
+                             "subscribe_weather", "unsubscribe_weather", "help"}
+
+        # 并行执行数据查询类意图
+        parallel_tasks = []
+        parallel_intent_items = []
         for intent_item in intents:
+            if intent_item["intent"] in parallel_intents:
+                parallel_tasks.append(self._execute_single_intent_v2(
+                    event, intent_item, user_id, collected_data, executed_actions
+                ))
+                parallel_intent_items.append(intent_item)
+
+        # 顺序执行其他意图
+        sequential_intent_items = [item for item in intents if item["intent"] not in parallel_intents]
+
+        # 并行执行所有数据查询
+        if parallel_tasks:
+            results = await asyncio.gather(*parallel_tasks, return_exceptions=True)
+            for i, result in enumerate(results):
+                if isinstance(result, Exception):
+                    logger.error(f"处理意图 {parallel_intent_items[i]['intent']} 失败: {result}")
+                    executed_actions.append({
+                        "type": "处理失败",
+                        "detail": str(result),
+                        "success": False
+                    })
+
+        # 顺序执行其他意图
+        for intent_item in sequential_intent_items:
             try:
-                result = await self._execute_single_intent_v2(
+                await self._execute_single_intent_v2(
                     event, intent_item, user_id, collected_data, executed_actions
                 )
             except Exception as e:
@@ -475,6 +509,12 @@ class SmartHomePlugin(Star):
             if data:
                 collected_data["weather"] = data
 
+        elif intent == "hourly_weather":
+            hours = intent_item.get("hours", 1)
+            data = await self._collect_hourly_weather_data(event, hours)
+            if data:
+                collected_data["hourly_weather"] = data
+
         elif intent == "set_location":
             location_text = intent_item.get("location", "")
             if location_text:
@@ -482,7 +522,7 @@ class SmartHomePlugin(Star):
                 executed_actions.append({
                     "type": "设置位置",
                     "detail": result,
-                    "success": "✅" in result
+                    "success": "√" in result
                 })
             else:
                 executed_actions.append({
@@ -526,7 +566,7 @@ class SmartHomePlugin(Star):
                         "type": "打开设备",
                         "detail": result,
                         "device": device_name,
-                        "success": "✅" in result
+                        "success": "√" in result
                     })
                 else:
                     executed_actions.append({
@@ -542,7 +582,7 @@ class SmartHomePlugin(Star):
                         "type": "关闭设备",
                         "detail": result,
                         "device": device_name,
-                        "success": "✅" in result
+                        "success": "√" in result
                     })
                 else:
                     executed_actions.append({
@@ -557,7 +597,7 @@ class SmartHomePlugin(Star):
                     executed_actions.append({
                         "type": "空调控制",
                         "detail": result,
-                        "success": "✅" in result
+                        "success": "√" in result
                     })
                 else:
                     data = await self._collect_ac_data(event)
@@ -572,7 +612,7 @@ class SmartHomePlugin(Star):
                         executed_actions.append({
                             "type": "设置温度",
                             "detail": result,
-                            "success": "✅" in result
+                            "success": "√" in result
                         })
                     except ValueError:
                         executed_actions.append({
@@ -691,6 +731,8 @@ class SmartHomePlugin(Star):
         # 数据部分
         if collected_data.get("weather"):
             parts.append(collected_data["weather"])
+        if collected_data.get("hourly_weather"):
+            parts.append(collected_data["hourly_weather"])
         if collected_data.get("temperature"):
             parts.append(collected_data["temperature"])
         if collected_data.get("humidity"):
@@ -730,6 +772,20 @@ class SmartHomePlugin(Star):
 
         return await self.llm_handler.generate_weather_summary(weather_data, location_name)
 
+    async def _collect_hourly_weather_data(self, event: AstrMessageEvent, hours: int) -> str:
+        """收集指定小时后的天气数据"""
+        user_id = event.get_sender_id()
+        location = await self.get_user_location(user_id)
+        if not location:
+            return None
+
+        adcode = location.get("adcode")
+        if not adcode:
+            return None
+
+        hourly_data = await self.weather_api.get_weather_at_hour(adcode, hours)
+        return self.weather_api.format_hourly_weather(hourly_data, hours)
+
     async def _collect_sensor_data(self, event: AstrMessageEvent) -> str:
         """收集传感器数据"""
         return await self._handle_sensor_query(event)
@@ -768,6 +824,7 @@ class SmartHomePlugin(Star):
 
         patterns = {
             "weather_query": r"\[天气查询\]",
+            "hourly_weather": r"\[小时天气[:：]?(\d+)\]",
             "set_location": r"\[设置位置[:：]?(.+?)\]",
             "sensor_query": r"\[传感器查询\]",
             "temperature_query": r"\[温度查询\]",
@@ -790,6 +847,8 @@ class SmartHomePlugin(Star):
                 result = {"intent": intent_name, "match_start": match.start()}
                 if intent_name == "set_location" and match.groups():
                     result["location"] = match.group(1).strip()
+                elif intent_name == "hourly_weather" and match.groups():
+                    result["hours"] = int(match.group(1).strip())
                 elif intent_name in ["turn_on", "turn_off"] and match.groups():
                     result["device"] = match.group(1).strip()
                 elif intent_name == "ac_control" and match.groups():
@@ -1090,13 +1149,13 @@ class SmartHomePlugin(Star):
 
                 # 状态映射
                 state_map = {
-                    "on": "✅ 开启",
-                    "off": "❌ 关闭",
-                    "cool": "❄️ 制冷",
-                    "heat": "🔥 制热",
-                    "auto": "🔄 自动",
-                    "idle": "💤 待机",
-                    "unavailable": "⚠️ 不可用",
+                    "on": "开启",
+                    "off": "关闭",
+                    "cool": "制冷",
+                    "heat": "制热",
+                    "auto": "自动",
+                    "idle": "待机",
+                    "unavailable": "不可用",
                 }
                 state_text = state_map.get(device_state, device_state)
                 results.append(f"  {name} ({device_type}): {state_text}")
@@ -1143,15 +1202,15 @@ class SmartHomePlugin(Star):
         if action == "on":
             success = await self.ha_client.turn_on(entity_id)
             if success:
-                return f"✅ 已打开 {name}"
+                return f"已打开 {name}"
             else:
-                return f"❌ 打开 {name} 失败"
+                return f"打开 {name} 失败"
         else:
             success = await self.ha_client.turn_off(entity_id)
             if success:
-                return f"✅ 已关闭 {name}"
+                return f"已关闭 {name}"
             else:
-                return f"❌ 关闭 {name} 失败"
+                return f"关闭 {name} 失败"
 
     # ==================== 空调控制 ====================
 
@@ -1249,24 +1308,24 @@ class SmartHomePlugin(Star):
             if key in command:
                 success = await self.ha_client.set_climate_mode(entity_id, mode)
                 if success:
-                    return f"✅ {name} 已设置为{key}模式"
-                return f"❌ 设置{key}模式失败"
+                    return f"{name} 已设置为{key}模式"
+                return f"设置{key}模式失败"
 
         # 检查风速命令
         for key, fan_mode in fan_map.items():
             if key in command:
                 success = await self.ha_client.set_climate_fan_mode(entity_id, fan_mode)
                 if success:
-                    return f"✅ {name} 风速已设置为{fan_mode}"
-                return f"❌ 设置风速失败"
+                    return f"{name} 风速已设置为{fan_mode}"
+                return f"设置风速失败"
 
         # 检查摆动命令
         for key, swing_mode in swing_map.items():
             if key in command:
                 success = await self.ha_client.set_climate_swing_mode(entity_id, swing_mode)
                 if success:
-                    return f"✅ {name} 摆动模式已{key}"
-                return f"❌ 设置摆动模式失败"
+                    return f"{name} 摆动模式已{key}"
+                return f"设置摆动模式失败"
 
         return f"未识别的命令：{command}\n可用命令：自动/制热/制冷/除湿/送风/关闭、低/中/高风速、摆动开/关"
 
@@ -1305,8 +1364,8 @@ class SmartHomePlugin(Star):
 
         success = await self.ha_client.set_climate_temperature(entity_id, temp)
         if success:
-            return f"✅ {name} 温度已设置为 {temp}°C"
-        return f"❌ 设置温度失败"
+            return f"{name} 温度已设置为 {temp}°C"
+        return f"设置温度失败"
 
     # ==================== 插件生命周期 ====================
 

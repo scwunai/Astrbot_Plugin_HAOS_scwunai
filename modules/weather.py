@@ -122,9 +122,60 @@ class WeatherAPI:
         data = await self.get_weather(
             adcode, extended=False, forecast=False, hourly=True, indices=False
         )
-        if data and "hourly" in data:
-            return data["hourly"][:hours]
+        if data and "hourly_forecast" in data:
+            return data["hourly_forecast"][:hours]
         return []
+
+    async def get_weather_at_hour(self, adcode: str, hours_later: int) -> Optional[dict]:
+        """
+        获取指定小时后的天气
+
+        Args:
+            adcode: 行政区划代码
+            hours_later: 几小时后（1-24）
+
+        Returns:
+            指定时间点的天气数据，失败返回 None
+        """
+        if hours_later < 1 or hours_later > 24:
+            return None
+
+        hourly_data = await self.get_hourly_forecast(adcode, hours_later)
+        if hourly_data and len(hourly_data) >= hours_later:
+            return hourly_data[hours_later - 1]
+        return None
+
+    def format_hourly_weather(self, hourly_data: dict, hours_later: int) -> str:
+        """
+        格式化小时级天气摘要
+
+        Args:
+            hourly_data: 小时级天气数据
+            hours_later: 几小时后
+
+        Returns:
+            格式化的天气摘要文本
+        """
+        if not hourly_data:
+            return f"无法获取 {hours_later} 小时后的天气数据"
+
+        time_str = hourly_data.get("time", "")
+        temperature = hourly_data.get("temperature", "N/A")
+        weather = hourly_data.get("weather", "N/A")
+        wind_direction = hourly_data.get("wind_direction", "N/A")
+        wind_scale = hourly_data.get("wind_scale", "N/A")
+        humidity = hourly_data.get("humidity", "N/A")
+        pop = hourly_data.get("pop")  # 降水概率
+
+        parts = [f"⏰ {hours_later} 小时后（{time_str}）的天气："]
+        parts.append(f"🌡️ 温度：{temperature}°C")
+        parts.append(f"🌤️ 天气：{weather}")
+        parts.append(f"🌬️ 风力：{wind_direction} {wind_scale}")
+        parts.append(f"💧 湿度：{humidity}%")
+        if pop is not None:
+            parts.append(f"🌧️ 降水概率：{pop}%")
+
+        return "\n".join(parts)
 
     async def get_indices(self, adcode: str) -> list:
         """

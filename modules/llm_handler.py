@@ -24,6 +24,7 @@ class LLMHandler:
     # 意图关键词映射
     INTENT_KEYWORDS = {
         "weather_query": ["天气", "气温", "温度", "下雨", "晴天", "阴天", "刮风", "下雪"],
+        "hourly_weather": ["小时后天气", "一小时后", "两小时后", "几小时后", "一会儿", "待会儿", "出门", "之后天气"],
         "set_location": ["设置位置", "我在", "我的位置", "定位", "所在城市"],
         "sensor_query": ["传感器", "温度传感器", "湿度传感器", "传感器状态"],
         "temperature_query": ["室内温度", "房间温度", "家里温度", "现在多少度"],
@@ -115,6 +116,7 @@ class LLMHandler:
         return """你是智能家居助手，可以帮助用户查询天气、监控传感器状态、控制家电设备。
 
 当用户询问天气时，回复格式：[天气查询]
+当用户询问几小时后的天气时，回复格式：[小时天气:小时数]（如：[小时天气:1] 表示1小时后）
 当用户设置位置时，回复格式：[设置位置:城市名]
 当用户查询传感器时，回复格式：[传感器查询]
 当用户查询室内温度时，回复格式：[温度查询]
@@ -137,6 +139,8 @@ class LLMHandler:
 
 示例：
 用户：今天天气怎么样 → [天气查询]
+用户：一个小时后天气怎么样 → [小时天气:1]
+用户：两小时后我要出门，天气如何 → [小时天气:2]
 用户：我在北京 → [设置位置:北京]
 用户：室内温度多少 → [温度查询]
 用户：空气质量怎么样 → [空气质量查询]
@@ -180,6 +184,9 @@ class LLMHandler:
         if collected_data.get("weather"):
             weather = collected_data["weather"]
             data_context.append(f"【天气数据】\n{weather}")
+
+        if collected_data.get("hourly_weather"):
+            data_context.append(f"【分时天气】\n{collected_data['hourly_weather']}")
 
         if collected_data.get("temperature"):
             data_context.append(f"【室内温度】\n{collected_data['temperature']}")
