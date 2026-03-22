@@ -89,6 +89,9 @@ Astrbot 的 HomeAssistant 智能家居集成插件，支持天气查询、传感
 | `enable_weather_push` | `true` | 是否启用每日天气推送 |
 | `enable_persona` | `false` | 是否启用 AstrBot 人格集成 |
 | `persona_name` | `""` | 指定使用的人格名称，留空使用默认人格 |
+| `enable_llm_semantic` | `false` | 是否启用 LLM 语义理解增强 |
+| `llm_semantic_provider` | `""` | 意图识别/设备匹配专用 Provider ID |
+| `llm_response_provider` | `""` | 自然回复生成专用 Provider ID |
 
 ### 人格集成配置
 
@@ -98,6 +101,26 @@ Astrbot 的 HomeAssistant 智能家居集成插件，支持天气查询、传感
 1. 在 AstrBot 管理面板 → 人格管理中创建或查看人格
 2. 在插件配置中启用 `enable_persona`
 3. （可选）在 `persona_name` 中指定要使用的人格名称，留空则使用默认人格
+
+### LLM 语义理解增强
+
+启用后，使用 LLM 进行智能语义处理：
+
+| 功能 | 使用模型 | 推荐配置 |
+|-----|---------|---------|
+| 意图识别 | `llm_semantic_provider` | 小模型（qwen-turbo、glm-4-flash） |
+| 设备匹配 | `llm_semantic_provider` | 小模型（qwen-turbo、glm-4-flash） |
+| 自然回复 | `llm_response_provider` | 更好的模型（gpt-4、qwen-plus） |
+
+配置方式：
+1. 在 AstrBot 管理面板 → LLM Provider 中添加 Provider
+2. 在插件配置页面，`llm_semantic_provider` 和 `llm_response_provider` 会显示下拉框，列出已配置的 Provider
+3. `persona_name` 也会显示下拉框，列出已配置的人格
+
+推荐模型组合：
+- **经济型**：qwen-turbo + qwen-plus
+- **均衡型**：glm-4-flash + gpt-3.5-turbo
+- **体验型**：qwen-turbo + gpt-4
 
 ## 指令列表
 
@@ -184,6 +207,17 @@ Astrbot 的 HomeAssistant 智能家居集成插件，支持天气查询、传感
 3. 找到目标传感器，复制实体标识符（如 `sensor.temperature`）
 
 ## 更新日志
+
+### v2.2.2 (2026-03-22)
+
+- ✨ 设备控制支持智能模糊匹配，无需精确匹配设备名
+- ✨ 支持设备别名（如"电脑"可匹配"台式机"、"笔记本"）
+- ✨ 新增 LLM 语义理解增强功能，统一处理意图识别、设备匹配、自然回复生成
+- ✨ 新增配置项 `enable_llm_semantic` 启用/禁用语义理解增强
+- ✨ 新增配置项 `llm_semantic_provider` 指定意图识别/设备匹配专用小模型
+- ✨ 新增配置项 `llm_response_provider` 指定回复生成专用模型，提升用户体验
+- ✨ 多设备匹配时提示用户确认具体设备
+- 🔧 优化未找到设备时的提示信息，列出可用设备
 
 ### v2.2.1 (2026-03-21)
 

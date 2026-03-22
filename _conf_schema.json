@@ -461,6 +461,27 @@
         "description": "指定使用的人格名称",
         "type": "string",
         "default": "",
-        "hint": "留空则使用 AstrBot 默认人格。可在 AstrBot 管理面板-人格管理中查看人格列表"
+        "hint": "选择要使用的人格，留空使用默认人格",
+        "_special": "select_persona"
+    },
+    "enable_llm_semantic": {
+        "description": "启用 LLM 语义理解增强",
+        "type": "bool",
+        "default": false,
+        "hint": "启用后，使用 LLM 进行意图识别、设备匹配、自然回复生成"
+    },
+    "llm_semantic_provider": {
+        "description": "意图识别/设备匹配专用 LLM Provider",
+        "type": "string",
+        "default": "",
+        "hint": "用于意图识别和设备匹配，推荐小模型（如 qwen-turbo、glm-4-flash）以降低延迟",
+        "_special": "select_provider"
+    },
+    "llm_response_provider": {
+        "description": "自然回复生成专用 LLM Provider",
+        "type": "string",
+        "default": "",
+        "hint": "用于生成自然友好的回复，推荐更好的模型（如 gpt-4、qwen-plus）以提升用户体验",
+        "_special": "select_provider"
     }
 }

@@ -27,7 +27,7 @@ logger = logging.getLogger(__name__)
     "Astrbot_Plugin_HAOS_scwunai",
     "scwunai",
     "智能家居助手：天气查询、传感器监控、智能告警",
-    "2.2.1",
+    "2.2.2",
     "https://github.com/scwunai/Astrbot_Plugin_HAOS_scwunai",
 )
 class SmartHomePlugin(Star):
@@ -142,7 +142,7 @@ class SmartHomePlugin(Star):
 
     def _get_permission_denied_message(self) -> str:
         """获取权限拒绝消息"""
-        return "您没有权限执行此操作，请联系管理员"
+        return "⚠️ 您没有权限执行此操作，请联系管理员"
 
     # ==================== 用户位置管理 ====================
 
@@ -208,14 +208,14 @@ class SmartHomePlugin(Star):
             return
 
         await self.scheduler_mgr.add_weather_subscriber(user_id, umo)
-        yield event.plain_result("已成功订阅每日天气推送！")
+        yield event.plain_result("✅ 已成功订阅每日天气推送！")
 
     @filter.command("unsubscribe_weather")
     async def unsubscribe_weather(self, event: AstrMessageEvent):
         """取消天气订阅"""
         user_id = event.get_sender_id()
         await self.scheduler_mgr.remove_weather_subscriber(user_id)
-        yield event.plain_result("已取消天气推送订阅。")
+        yield event.plain_result("✅ 已取消天气推送订阅。")
 
     @filter.command("sensor")
     async def get_sensor(self, event: AstrMessageEvent):
@@ -243,7 +243,7 @@ class SmartHomePlugin(Star):
                 continue
             name = sensor.get("name", sensor.get("entity_id", "未命名"))
             entity_id = sensor.get("entity_id", "")
-            enabled = "√" if sensor.get("enabled", True) else "❌"
+            enabled = "✅" if sensor.get("enabled", True) else "❌"
             lines.append(f"{i}. {name} ({entity_id}) {enabled}")
 
         yield event.plain_result("\n".join(lines))
@@ -294,7 +294,7 @@ class SmartHomePlugin(Star):
             return
 
         device_name = parts[1]
-        result = await self._handle_device_control(device_name, "on")
+        result = await self._handle_device_control(device_name, "on", event)
         yield event.plain_result(result)
 
     @filter.command("turn_off")
@@ -310,7 +310,7 @@ class SmartHomePlugin(Star):
             return
 
         device_name = parts[1]
-        result = await self._handle_device_control(device_name, "off")
+        result = await self._handle_device_control(device_name, "off", event)
         yield event.plain_result(result)
 
     @filter.command("air_quality")
@@ -367,6 +367,8 @@ class SmartHomePlugin(Star):
     @filter.on_llm_request()
     async def on_llm_request(self, event: AstrMessageEvent, req: ProviderRequest):
         """LLM 请求处理 - 注入系统提示"""
+        # 无论是否启用语义理解增强，都注入系统提示
+        # 区别在于：启用时由小模型做意图识别，不启用时由主模型输出意图标记
         system_prompt = self.llm_handler.get_system_prompt()
         if req.system_prompt:
             req.system_prompt = f"{req.system_prompt}\n\n{system_prompt}"
@@ -376,14 +378,20 @@ class SmartHomePlugin(Star):
     @filter.on_llm_response()
     async def on_llm_response(self, event: AstrMessageEvent, resp: LLMResponse):
         """LLM 响应处理 - 解析意图并执行"""
-        text = resp.completion_text.strip()
         user_id = event.get_sender_id()
         original_message = event.get_message_str().strip()
 
-        # 解析所有意图标记
-        intents = self._parse_llm_intents(text)
+        # 意图识别：优先使用小模型，否则从主模型响应中解析
+        if self.config.get("enable_llm_semantic", False):
+            # 使用小模型独立进行意图识别
+            intents = await self._llm_parse_intents(original_message, event)
+        else:
+            # 从主模型响应中解析意图标记
+            text = resp.completion_text.strip()
+            intents = self._parse_llm_intents(text)
+
         if not intents:
-            return  # 没有意图标记，保持原响应
+            return  # 无意图，保持原响应
 
         # 需要权限控制的意图
         admin_intents = {"sensor_query", "temperature_query", "humidity_query", "air_quality",
@@ -522,7 +530,7 @@ class SmartHomePlugin(Star):
                 executed_actions.append({
                     "type": "设置位置",
                     "detail": result,
-                    "success": "√" in result
+                    "success": "✅" in result
                 })
             else:
                 executed_actions.append({
@@ -561,12 +569,12 @@ class SmartHomePlugin(Star):
             elif intent == "turn_on":
                 device_name = intent_item.get("device", "")
                 if device_name:
-                    result = await self._handle_device_control(device_name, "on")
+                    result = await self._handle_device_control(device_name, "on", event)
                     executed_actions.append({
                         "type": "打开设备",
                         "detail": result,
                         "device": device_name,
-                        "success": "√" in result
+                        "success": "✅" in result
                     })
                 else:
                     executed_actions.append({
@@ -577,12 +585,12 @@ class SmartHomePlugin(Star):
             elif intent == "turn_off":
                 device_name = intent_item.get("device", "")
                 if device_name:
-                    result = await self._handle_device_control(device_name, "off")
+                    result = await self._handle_device_control(device_name, "off", event)
                     executed_actions.append({
                         "type": "关闭设备",
                         "detail": result,
                         "device": device_name,
-                        "success": "√" in result
+                        "success": "✅" in result
                     })
                 else:
                     executed_actions.append({
@@ -597,7 +605,7 @@ class SmartHomePlugin(Star):
                     executed_actions.append({
                         "type": "空调控制",
                         "detail": result,
-                        "success": "√" in result
+                        "success": "✅" in result
                     })
                 else:
                     data = await self._collect_ac_data(event)
@@ -612,7 +620,7 @@ class SmartHomePlugin(Star):
                         executed_actions.append({
                             "type": "设置温度",
                             "detail": result,
-                            "success": "√" in result
+                            "success": "✅" in result
                         })
                     except ValueError:
                         executed_actions.append({
@@ -679,14 +687,17 @@ class SmartHomePlugin(Star):
             自然回复文本
         """
         try:
-            # 获取当前会话的 provider
-            umo = event.unified_msg_origin
-            provider_id = await self.context.get_current_chat_provider_id(umo=umo)
-
+            # 优先使用回复专用 provider，否则使用语义理解 provider，最后使用当前会话 provider
+            provider_id = self.config.get("llm_response_provider", "")
+            if not provider_id:
+                provider_id = self.config.get("llm_semantic_provider", "")
+            if not provider_id:
+                provider_id = await self._get_semantic_provider_id(event)
             if not provider_id:
                 return None
 
             # 获取人格提示词（如果启用）
+            umo = event.unified_msg_origin
             persona_prompt = None
             if self.config.get("enable_persona", False):
                 persona_name = self.config.get("persona_name", "")
@@ -809,6 +820,112 @@ class SmartHomePlugin(Star):
     async def _collect_ac_data(self, event: AstrMessageEvent) -> str:
         """收集空调状态数据"""
         return await self._handle_ac_status(event)
+
+    async def _llm_parse_intents(self, user_message: str, event: AstrMessageEvent) -> list[dict]:
+        """
+        使用 LLM 进行意图识别（统一处理天气、设备等所有意图）
+
+        Args:
+            user_message: 用户消息
+            event: 消息事件
+
+        Returns:
+            意图列表
+        """
+        try:
+            # 获取语义理解专用 provider
+            provider_id = await self._get_semantic_provider_id(event)
+            if not provider_id:
+                return []
+
+            # 构建设备列表描述
+            switches = self.config.get("switches", [])
+            device_list = []
+            for device in switches:
+                if isinstance(device, dict) and device.get("entity_id"):
+                    name = device.get("name", device.get("entity_id", "未知"))
+                    device_type = device.get("__template_key", "通用")
+                    device_list.append(f"- {name}（类型：{device_type}）")
+
+            prompt = f"""你是智能家居助手的意图识别模块。分析用户消息，识别用户意图。
+
+用户消息：{user_message}
+
+可用设备列表：
+{chr(10).join(device_list) if device_list else '无'}
+
+请识别用户意图，按以下格式输出（每行一个意图）：
+
+意图格式说明：
+- 天气查询：[天气查询]（查询当前天气，包括温度、湿度等）
+- 分时天气：[小时天气:小时数]（如 [小时天气:1] 表示1小时后的天气）
+- 设置位置：[设置位置:城市名]
+- 室内温度：[温度查询]（查询室内/房间温度传感器）
+- 室内湿度：[湿度查询]（查询室内/房间湿度传感器）
+- 空气质量：[空气质量查询]
+- 传感器状态：[传感器查询]
+- 设备状态：[设备状态查询]
+- 打开设备：[打开设备:设备名]（设备名需匹配可用设备列表中的名称）
+- 关闭设备：[关闭设备:设备名]
+- 空调控制：[空调控制:命令]（命令：制冷/制热/除湿/送风/关闭）
+- 空调温度：[空调温度:温度值]
+- 订阅天气：[订阅天气]
+- 取消订阅：[取消天气订阅]
+- 帮助：[帮助]
+
+识别规则：
+1. 用户问"温度多少"、"今天温度"、"外面温度"等 → [天气查询]
+2. 用户问"室内温度"、"房间温度"、"家里温度"等 → [温度查询]
+3. 用户问"一小时后天气"、"两小时后温度"等 → [小时天气:小时数]
+4. 用户问"电脑"、"台式电脑"等 → 匹配对应的设备名（如"台式机"）
+5. 用户问"灯"且有多个灯 → 输出所有匹配的设备
+6. 用户消息不涉及以上意图 → 不输出任何内容
+7. 多个意图按顺序输出，每行一个
+
+示例：
+用户：今天温度是多少 → [天气查询]
+用户：室内温度多少 → [温度查询]
+用户：一个小时后天气怎么样 → [小时天气:1]
+用户：现在天气和一小时后天气 → [天气查询]
+[小时天气:1]
+用户：打开空调，调到26度 → [打开设备:空调]
+[空调温度:26]
+用户：今天温度多少，一小时后要出门，那时候温度是多少 → [天气查询]
+[小时天气:1]
+
+只输出意图标记，不要其他解释。"""
+
+            # 调用 LLM
+            llm_resp = await self.context.llm_generate(
+                chat_provider_id=provider_id,
+                prompt=prompt
+            )
+
+            if not llm_resp or not llm_resp.completion_text:
+                return []
+
+            # 解析 LLM 响应中的意图标记
+            return self._parse_llm_intents(llm_resp.completion_text)
+
+        except Exception as e:
+            logger.error(f"LLM 意图识别失败: {e}")
+            return []
+
+    async def _get_semantic_provider_id(self, event: AstrMessageEvent) -> Optional[str]:
+        """
+        获取语义理解专用的 Provider ID
+
+        Args:
+            event: 消息事件
+
+        Returns:
+            Provider ID
+        """
+        provider_id = self.config.get("llm_semantic_provider", "")
+        if not provider_id:
+            umo = event.unified_msg_origin
+            provider_id = await self.context.get_current_chat_provider_id(umo=umo)
+        return provider_id
 
     def _parse_llm_intents(self, text: str) -> list[dict]:
         """
@@ -1149,26 +1266,27 @@ class SmartHomePlugin(Star):
 
                 # 状态映射
                 state_map = {
-                    "on": "开启",
-                    "off": "关闭",
-                    "cool": "制冷",
-                    "heat": "制热",
-                    "auto": "自动",
-                    "idle": "待机",
-                    "unavailable": "不可用",
+                    "on": "✅ 开启",
+                    "off": "❌ 关闭",
+                    "cool": "❄️ 制冷",
+                    "heat": "🔥 制热",
+                    "auto": "🔄 自动",
+                    "idle": "💤 待机",
+                    "unavailable": "⚠️ 不可用",
                 }
                 state_text = state_map.get(device_state, device_state)
                 results.append(f"  {name} ({device_type}): {state_text}")
 
         return "\n".join(results) if len(results) > 1 else "获取设备状态失败"
 
-    async def _handle_device_control(self, device_name: str, action: str) -> str:
+    async def _handle_device_control(self, device_name: str, action: str, event: AstrMessageEvent = None) -> str:
         """
-        处理设备控制
+        处理设备控制（支持智能模糊匹配和 LLM 语义匹配）
 
         Args:
             device_name: 设备名称
             action: 操作 (on/off)
+            event: 消息事件（用于 LLM 调用）
 
         Returns:
             操作结果
@@ -1180,21 +1298,46 @@ class SmartHomePlugin(Star):
         if not switches:
             return "暂未配置任何设备"
 
-        # 查找匹配的设备
-        matched_device = None
+        # 设备别名映射（用户输入 -> 可能的设备名关键词）
+        alias_map = {
+            "电脑": ["台式机", "笔记本", "电脑", "台式电脑", "笔记本电脑", "pc", "PC"],
+            "台式电脑": ["台式机", "台式电脑"],
+            "笔记本电脑": ["笔记本", "笔记本电脑"],
+            "灯": ["灯", "台灯", "吊灯", "吸顶灯"],
+            "空调": ["空调"],
+            "风扇": ["风扇", "电扇", "电风扇"],
+            "电视": ["电视", "电视机", "TV"],
+            "音响": ["音响", "音箱", "扬声器"],
+        }
+
+        # 收集所有有效设备
+        valid_devices = []
         for device in switches:
-            if not isinstance(device, dict):
-                continue
-            name = device.get("name", "")
-            entity_id = device.get("entity_id", "")
-            # 模糊匹配设备名
-            if device_name in name or name in device_name or device_name.lower() in entity_id.lower():
-                matched_device = device
-                break
+            if isinstance(device, dict) and device.get("entity_id"):
+                valid_devices.append(device)
 
-        if not matched_device:
-            return f"未找到设备「{device_name}」，请检查设备名称"
+        # 第一步：规则匹配
+        matched_devices = self._fuzzy_match_devices(device_name, valid_devices, alias_map)
 
+        # 第二步：如果规则匹配失败或多个匹配，尝试 LLM 语义匹配
+        enable_llm_semantic = self.config.get("enable_llm_semantic", False)
+        if enable_llm_semantic and event and (not matched_devices or len(matched_devices) > 1):
+            llm_matched = await self._llm_match_device(device_name, valid_devices, event)
+            if llm_matched:
+                matched_devices = llm_matched
+
+        if not matched_devices:
+            # 列出可用设备提示
+            device_names = [d.get("name", d.get("entity_id", "未知")) for d in valid_devices]
+            return f"未找到设备「{device_name}」\n可用设备：{', '.join(device_names)}"
+
+        if len(matched_devices) > 1:
+            # 多个匹配，提示用户确认
+            names = [d.get("name", d.get("entity_id", "未知")) for d in matched_devices]
+            return f"找到多个匹配「{device_name}」的设备：{', '.join(names)}\n请指定具体设备名称"
+
+        # 单个匹配，执行操作
+        matched_device = matched_devices[0]
         entity_id = matched_device.get("entity_id")
         name = matched_device.get("name", entity_id)
 
@@ -1202,15 +1345,211 @@ class SmartHomePlugin(Star):
         if action == "on":
             success = await self.ha_client.turn_on(entity_id)
             if success:
-                return f"已打开 {name}"
+                return f"✅ 已打开 {name}"
             else:
-                return f"打开 {name} 失败"
+                return f"❌ 打开 {name} 失败"
         else:
             success = await self.ha_client.turn_off(entity_id)
             if success:
-                return f"已关闭 {name}"
+                return f"✅ 已关闭 {name}"
             else:
-                return f"关闭 {name} 失败"
+                return f"❌ 关闭 {name} 失败"
+
+    async def _llm_match_device(
+        self,
+        query: str,
+        devices: list[dict],
+        event: AstrMessageEvent
+    ) -> Optional[list[dict]]:
+        """
+        使用 LLM 进行语义设备匹配
+
+        Args:
+            query: 用户输入的设备名
+            devices: 设备列表
+            event: 消息事件
+
+        Returns:
+            匹配的设备列表，未匹配返回 None
+        """
+        try:
+            # 获取语义理解专用 provider
+            provider_id = await self._get_semantic_provider_id(event)
+            if not provider_id:
+                return None
+
+            # 构建设备列表描述
+            device_list = []
+            for i, device in enumerate(devices):
+                name = device.get("name", device.get("entity_id", "未知"))
+                device_type = device.get("__template_key", "通用")
+                device_list.append(f"{i + 1}. {name}（类型：{device_type}）")
+
+            prompt = f"""你是一个设备匹配助手。用户想要控制设备，请根据用户描述从设备列表中找出最匹配的设备。
+
+用户描述：{query}
+
+可用设备列表：
+{chr(10).join(device_list)}
+
+请分析用户意图，返回最匹配的设备编号。规则：
+1. 如果用户说的设备名和某个设备名完全一致，返回该设备
+2. 如果用户说的是设备别名（如"电脑"可能指"台式机"或"笔记本"），根据设备类型判断
+3. 如果用户说的位置+设备类型（如"客厅的灯"），匹配包含该位置和类型的设备
+4. 如果有多个可能匹配，返回多个编号（用逗号分隔）
+5. 如果没有匹配的设备，返回"无"
+
+只返回设备编号，不要其他解释。例如：1 或 2,3 或 无"""
+
+            # 调用 LLM
+            llm_resp = await self.context.llm_generate(
+                chat_provider_id=provider_id,
+                prompt=prompt
+            )
+
+            if not llm_resp or not llm_resp.completion_text:
+                return None
+
+            # 解析 LLM 响应
+            response_text = llm_resp.completion_text.strip()
+
+            if response_text == "无" or "无" in response_text:
+                return None
+
+            # 提取编号
+            import re
+            numbers = re.findall(r'\d+', response_text)
+            if not numbers:
+                return None
+
+            # 获取对应设备
+            matched = []
+            for num_str in numbers:
+                try:
+                    idx = int(num_str) - 1
+                    if 0 <= idx < len(devices):
+                        matched.append(devices[idx])
+                except ValueError:
+                    continue
+
+            return matched if matched else None
+
+        except Exception as e:
+            logger.error(f"LLM 设备匹配失败: {e}")
+            return None
+
+    def _fuzzy_match_devices(
+        self,
+        query: str,
+        devices: list[dict],
+        alias_map: dict[str, list[str]]
+    ) -> list[dict]:
+        """
+        模糊匹配设备
+
+        Args:
+            query: 用户输入的设备名
+            devices: 设备列表
+            alias_map: 别名映射
+
+        Returns:
+            匹配的设备列表
+        """
+        query_lower = query.lower().strip()
+        matched = []
+
+        # 1. 精确匹配
+        for device in devices:
+            name = device.get("name", "")
+            if name == query:
+                return [device]  # 精确匹配直接返回
+
+        # 2. 别名匹配
+        alias_keywords = alias_map.get(query, [])
+        for device in devices:
+            name = device.get("name", "")
+            name_lower = name.lower()
+            entity_id = device.get("entity_id", "").lower()
+
+            # 检查别名关键词
+            for keyword in alias_keywords:
+                if keyword.lower() in name_lower or keyword.lower() in entity_id:
+                    if device not in matched:
+                        matched.append(device)
+                    break
+
+        if matched:
+            return matched
+
+        # 3. 包含匹配（用户输入包含设备名或设备名包含用户输入）
+        for device in devices:
+            name = device.get("name", "")
+            name_lower = name.lower()
+            entity_id = device.get("entity_id", "").lower()
+
+            # 设备名包含用户输入
+            if query_lower in name_lower:
+                matched.append(device)
+                continue
+
+            # 用户输入包含设备名
+            if name_lower and name_lower in query_lower:
+                matched.append(device)
+                continue
+
+            # entity_id 包含用户输入
+            if query_lower in entity_id:
+                matched.append(device)
+                continue
+
+        if matched:
+            return matched
+
+        # 4. 模糊关键词匹配（检查设备名的关键词是否在用户输入中）
+        # 例如：用户说"台式电脑"，设备名是"台式机"
+        for device in devices:
+            name = device.get("name", "")
+            if not name:
+                continue
+
+            # 提取设备名的关键词（去掉常见后缀）
+            keywords = self._extract_device_keywords(name)
+            for keyword in keywords:
+                if keyword in query_lower:
+                    matched.append(device)
+                    break
+
+        return matched
+
+    def _extract_device_keywords(self, name: str) -> list[str]:
+        """
+        从设备名提取关键词
+
+        Args:
+            name: 设备名
+
+        Returns:
+            关键词列表
+        """
+        # 常见设备类型关键词
+        device_types = ["台式机", "笔记本", "电脑", "灯", "空调", "风扇", "电视", "音响", "音箱"]
+        keywords = []
+
+        name_lower = name.lower()
+        for dtype in device_types:
+            if dtype in name_lower:
+                keywords.append(dtype)
+
+        # 提取核心词（去掉"客厅"、"卧室"等位置词）
+        location_words = ["客厅", "卧室", "书房", "厨房", "卫生间", "阳台", "主卧", "次卧"]
+        core_name = name
+        for loc in location_words:
+            core_name = core_name.replace(loc, "")
+
+        if core_name.strip():
+            keywords.append(core_name.strip().lower())
+
+        return keywords
 
     # ==================== 空调控制 ====================
 
@@ -1308,24 +1647,24 @@ class SmartHomePlugin(Star):
             if key in command:
                 success = await self.ha_client.set_climate_mode(entity_id, mode)
                 if success:
-                    return f"{name} 已设置为{key}模式"
-                return f"设置{key}模式失败"
+                    return f"✅ {name} 已设置为{key}模式"
+                return f"❌ 设置{key}模式失败"
 
         # 检查风速命令
         for key, fan_mode in fan_map.items():
             if key in command:
                 success = await self.ha_client.set_climate_fan_mode(entity_id, fan_mode)
                 if success:
-                    return f"{name} 风速已设置为{fan_mode}"
-                return f"设置风速失败"
+                    return f"✅ {name} 风速已设置为{fan_mode}"
+                return f"❌ 设置风速失败"
 
         # 检查摆动命令
         for key, swing_mode in swing_map.items():
             if key in command:
                 success = await self.ha_client.set_climate_swing_mode(entity_id, swing_mode)
                 if success:
-                    return f"{name} 摆动模式已{key}"
-                return f"设置摆动模式失败"
+                    return f"✅ {name} 摆动模式已{key}"
+                return f"❌ 设置摆动模式失败"
 
         return f"未识别的命令：{command}\n可用命令：自动/制热/制冷/除湿/送风/关闭、低/中/高风速、摆动开/关"
 
@@ -1364,8 +1703,8 @@ class SmartHomePlugin(Star):
 
         success = await self.ha_client.set_climate_temperature(entity_id, temp)
         if success:
-            return f"{name} 温度已设置为 {temp}°C"
-        return f"设置温度失败"
+            return f"✅ {name} 温度已设置为 {temp}°C"
+        return f"❌ 设置温度失败"
 
     # ==================== 插件生命周期 ====================
 
