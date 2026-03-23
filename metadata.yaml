@@ -1,6 +1,6 @@
 name: Astrbot_Plugin_HAOS_scwunai
-desc: 智能家居助手：天气查询、传感器监控、智能告警。支持自然语言交互与人格集成。
-help: 输入 /haoshelp 查看帮助。
-version: v2.2.2
+desc: 智能家居助手：传感器监控、设备控制。通过 /ha 指令使用自然语言交互。
+help: 输入 /haoshelp 查看帮助，或使用 /ha <自然语言> 智能控制。
+version: v2.2.3
 author: scwunai
 repo: https://github.com/scwunai/Astrbot_Plugin_HAOS_scwunai
