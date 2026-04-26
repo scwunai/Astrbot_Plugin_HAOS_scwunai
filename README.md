@@ -50,6 +50,15 @@ Astrbot 的 HomeAssistant 智能家居集成插件，通过 `/ha` 指令使用�
 }
 ```
 
+窗帘、百叶、卷帘使用 Home Assistant 的 `cover` 实体：
+
+```json
+{
+  "name": "客厅窗帘",
+  "entity_id": "cover.living_room_curtain"
+}
+```
+
 ## 指令列表
 
 ### 基础指令
@@ -58,6 +67,7 @@ Astrbot 的 HomeAssistant 智能家居集成插件，通过 `/ha` 指令使用�
 |-----|------|
 | `/get_temperature` | 获取温度数据 |
 | `/get_humidity` | 获取湿度数据 |
+| `/curtain <指令>` | 控制窗帘打开、关闭、停止或设置开度 |
 | `/monitor_temp` | 启动温度监控 |
 | `/stop_monitor` | 停止温度监控 |
 | `/haoshelp` | 显示帮助信息 |
@@ -77,6 +87,9 @@ Astrbot 的 HomeAssistant 智能家居集成插件，通过 `/ha` 指令使用�
 /ha 温度和湿度都告诉我
 /ha 打开客厅灯
 /ha 关闭空调
+/ha 打开客厅窗帘
+/ha 客厅窗帘开到50%
+/ha 停止客厅窗帘
 /ha 启动温度监控
 /ha 停止监控
 /ha 今天天气怎么样

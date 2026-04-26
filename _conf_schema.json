@@ -355,6 +355,22 @@
                     }
                 }
             },
+            "curtain": {
+                "name": "窗帘",
+                "hint": "窗帘/百叶/卷帘控制配置",
+                "items": {
+                    "name": {
+                        "description": "设备名称",
+                        "type": "string",
+                        "hint": "如：客厅窗帘"
+                    },
+                    "entity_id": {
+                        "description": "设备实体ID",
+                        "type": "string",
+                        "hint": "如：cover.living_room_curtain"
+                    }
+                }
+            },
             "fan": {
                 "name": "电扇",
                 "hint": "电扇开关配置",

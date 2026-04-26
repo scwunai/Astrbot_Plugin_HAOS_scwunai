@@ -252,6 +252,7 @@ class HomeAssistantClient:
             "climate": "turn_on",
             "humidifier": "turn_on",
             "media_player": "turn_on",
+            "cover": "open_cover",
         }
         service = service_map.get(domain, "turn_on")
         return await self.call_service(domain, service, entity_id)
@@ -274,6 +275,7 @@ class HomeAssistantClient:
             "climate": "turn_off",
             "humidifier": "turn_off",
             "media_player": "turn_off",
+            "cover": "close_cover",
         }
         service = service_map.get(domain, "turn_off")
         return await self.call_service(domain, service, entity_id)
@@ -307,7 +309,7 @@ class HomeAssistantClient:
                     if response.status == 200:
                         states = await response.json()
                         # 过滤出开关类实体
-                        switch_domains = ("light.", "switch.", "fan.", "climate.", "humidifier.")
+                        switch_domains = ("light.", "switch.", "fan.", "climate.", "humidifier.", "cover.")
                         return [
                             s for s in states
                             if any(s.get("entity_id", "").startswith(d) for d in switch_domains)
@@ -355,6 +357,10 @@ class HomeAssistantClient:
         state_map = {
             "on": "开启",
             "off": "关闭",
+            "open": "打开",
+            "opening": "正在打开",
+            "closed": "关闭",
+            "closing": "正在关闭",
             "cool": "制冷",
             "heat": "制热",
             "auto": "自动",
@@ -408,6 +414,29 @@ class HomeAssistantClient:
         """
         return await self.call_service(
             "light", "turn_on", entity_id, {"brightness": brightness}
+        )
+
+    # ==================== Cover control ====================
+
+    async def open_cover(self, entity_id: str) -> bool:
+        """Open a cover entity."""
+        return await self.call_service("cover", "open_cover", entity_id)
+
+    async def close_cover(self, entity_id: str) -> bool:
+        """Close a cover entity."""
+        return await self.call_service("cover", "close_cover", entity_id)
+
+    async def stop_cover(self, entity_id: str) -> bool:
+        """Stop a cover entity."""
+        return await self.call_service("cover", "stop_cover", entity_id)
+
+    async def set_cover_position(self, entity_id: str, position: int) -> bool:
+        """Set cover position from 0 to 100."""
+        if position < 0 or position > 100:
+            logger.warning(f"Cover position out of range: {position}")
+            return False
+        return await self.call_service(
+            "cover", "set_cover_position", entity_id, {"position": position}
         )
 
     # ==================== 空调控制 ====================

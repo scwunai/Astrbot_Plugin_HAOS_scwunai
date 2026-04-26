@@ -37,6 +37,9 @@ class SmartHomePlugin(Star):
         "sensor_query": ["传感器", "传感器状态"],
         "monitor_start": ["监控温度", "监测温度", "盯着温度", "温度监控", "启动监控"],
         "monitor_stop": ["停止监控", "关闭监控", "别监控", "取消监控"],
+        "curtain_query": ["窗帘状态", "窗帘情况", "百叶状态", "卷帘状态"],
+        "curtain_position": ["窗帘位置", "窗帘开度", "窗帘到", "窗帘开到", "百叶位置", "卷帘位置"],
+        "curtain_control": ["打开窗帘", "开启窗帘", "开窗帘", "拉开窗帘", "关闭窗帘", "关窗帘", "关上窗帘", "拉上窗帘", "停止窗帘", "暂停窗帘"],
         "device_on": ["打开", "开启", "启动", "开灯", "开空调"],
         "device_off": ["关闭", "关掉", "停止", "关灯", "关空调"],
         "device_query": ["设备状态", "设备情况"],
@@ -116,6 +119,7 @@ class SmartHomePlugin(Star):
     # 需要权限控制的意图列表
     PROTECTED_INTENTS = {
         "device_on", "device_off", "device_query",
+        "curtain_control", "curtain_position", "curtain_query",
         "ac_control", "ac_temp",
         "sensor_query", "temperature_query", "humidity_query",
         "monitor_start", "monitor_stop",
@@ -136,6 +140,9 @@ class SmartHomePlugin(Star):
         "device_query": "device",
         "device_on": "device_control",
         "device_off": "device_control",
+        "curtain_control": "curtain",
+        "curtain_position": "curtain",
+        "curtain_query": "curtain",
         "ac_control": "device_control",
         "ac_temp": "device_control",
         "monitor_start": "monitor_temp",
@@ -391,13 +398,70 @@ class SmartHomePlugin(Star):
                 state = await self.ha_client.get_entity_state(entity_id)
                 if state:
                     dev_state = state.get("state", "unknown")
-                    state_map = {"on": "开启", "off": "关闭", "cool": "制冷", "heat": "制热"}
+                    state_map = {
+                        "on": "开启",
+                        "off": "关闭",
+                        "open": "打开",
+                        "opening": "正在打开",
+                        "closed": "关闭",
+                        "closing": "正在关闭",
+                        "cool": "制冷",
+                        "heat": "制热",
+                    }
                     state_text = state_map.get(dev_state, dev_state)
                     results.append(f"💡 {name}: {state_text}")
                 else:
                     results.append(f"💡 {name}: 获取失败")
 
         yield event.plain_result("\n".join(results) if results else "无设备数据")
+
+    @filter.command("curtain")
+    async def control_curtain(self, event: AstrMessageEvent):
+        """Control curtain devices."""
+        if not self.ha_client:
+            yield event.plain_result("HomeAssistant 未配置")
+            return
+
+        if not self._check_permission(event, "curtain_control"):
+            yield event.plain_result(self._get_permission_denied_message())
+            return
+
+        message = event.get_message_str().strip()
+        parts = message.split(maxsplit=1)
+        if len(parts) < 2:
+            yield event.plain_result("请输入窗帘指令，例如：/curtain 打开客厅窗帘 或 /curtain 客厅窗帘 50%")
+            return
+
+        intents = self._parse_curtain_intents(parts[1].strip())
+        if not intents:
+            yield event.plain_result("未识别窗帘指令，支持打开、关闭、停止、设置百分比和查询状态")
+            return
+
+        intent_item = intents[0]
+        intent = intent_item.get("intent")
+        device_name = intent_item.get("device", "窗帘")
+
+        if intent == "curtain_position":
+            position = intent_item.get("position")
+            success = await self._set_curtain_position(device_name, position)
+            if success:
+                yield event.plain_result(f"已将 {device_name} 设置到 {position}%")
+            else:
+                yield event.plain_result(f"设置 {device_name} 位置失败")
+            return
+
+        if intent == "curtain_query":
+            data = await self._get_curtains_data(device_name)
+            yield event.plain_result(data or f"获取 {device_name} 状态失败")
+            return
+
+        action = intent_item.get("action", "")
+        success = await self._control_curtain(device_name, action)
+        action_text = self._format_curtain_action(action)
+        if success:
+            yield event.plain_result(f"已{action_text} {device_name}")
+        else:
+            yield event.plain_result(f"{action_text} {device_name} 失败")
 
     @filter.command("haoshelp")
     async def help(self, event: AstrMessageEvent):
@@ -409,6 +473,7 @@ class SmartHomePlugin(Star):
 /get_humidity - 获取湿度
 /sensor - 查询所有传感器
 /device - 查询设备状态
+/curtain <指令> - 控制窗帘
 /monitor_temp - 启动温度监控
 /stop_monitor - 停止监控
 
@@ -419,6 +484,8 @@ class SmartHomePlugin(Star):
 /ha 现在温度多少
 /ha 卧室温度多少
 /ha 打开客厅灯
+/ha 打开客厅窗帘
+/ha 客厅窗帘开到 50%
 /ha 今天天气怎么样
 /ha 我在北京"""
         yield event.plain_result(help_text)
@@ -466,8 +533,14 @@ class SmartHomePlugin(Star):
         """基于关键词解析意图"""
         import re
         intents = []
+        curtain_intents = self._parse_curtain_intents(text)
+        intents.extend(curtain_intents)
 
         for intent, keywords in self.INTENT_KEYWORDS.items():
+            if intent.startswith("curtain_"):
+                continue
+            if curtain_intents and intent in ("device_on", "device_off"):
+                continue
             for keyword in keywords:
                 if keyword in text:
                     intent_item = {"intent": intent}
@@ -550,6 +623,98 @@ class SmartHomePlugin(Star):
 
         return intents
 
+    def _parse_curtain_intents(self, text: str) -> list[dict]:
+        """Parse curtain commands from natural language."""
+        import re
+
+        if not any(word in text for word in ("窗帘", "百叶", "卷帘")):
+            return []
+
+        intent_item = {}
+        position = self._extract_curtain_position(text)
+        if position is not None:
+            intent_item = {"intent": "curtain_position", "position": position}
+        elif any(word in text for word in ("状态", "情况")):
+            intent_item = {"intent": "curtain_query"}
+        elif any(word in text for word in ("停止", "暂停", "停下")):
+            intent_item = {"intent": "curtain_control", "action": "stop"}
+        elif any(
+            re.search(pattern, text)
+            for pattern in (
+                r"(?:关闭|关上|拉上|合上).*(?:窗帘|百叶|卷帘)",
+                r"关.*(?:窗帘|百叶|卷帘)",
+                r"(?:窗帘|百叶|卷帘).*(?:关闭|关上|拉上|合上)",
+            )
+        ):
+            intent_item = {"intent": "curtain_control", "action": "close"}
+        elif any(
+            re.search(pattern, text)
+            for pattern in (
+                r"(?:打开|开启|拉开).*(?:窗帘|百叶|卷帘)",
+                r"开.*(?:窗帘|百叶|卷帘)",
+                r"(?:窗帘|百叶|卷帘).*(?:打开|开启|拉开)",
+            )
+        ):
+            intent_item = {"intent": "curtain_control", "action": "open"}
+
+        if not intent_item:
+            return []
+
+        intent_item["device"] = self._extract_curtain_name(text)
+        return [intent_item]
+
+    def _extract_curtain_position(self, text: str) -> Optional[int]:
+        """Extract a 0-100 cover position from text."""
+        import re
+
+        percent_match = re.search(r"(\d{1,3})\s*%", text)
+        if percent_match:
+            return self._normalize_curtain_position(percent_match.group(1))
+
+        position_patterns = [
+            r"(?:到|开到|调到|设置到|设为)\s*(\d{1,3})",
+            r"(\d{1,3})\s*(?:位置|开度)",
+            r"百分之\s*(\d{1,3})",
+        ]
+        for pattern in position_patterns:
+            match = re.search(pattern, text)
+            if match:
+                return self._normalize_curtain_position(match.group(1))
+
+        return None
+
+    def _normalize_curtain_position(self, value: str) -> Optional[int]:
+        """Normalize a Home Assistant cover position."""
+        try:
+            position = int(value)
+        except (TypeError, ValueError):
+            return None
+        if 0 <= position <= 100:
+            return position
+        return None
+
+    def _extract_curtain_name(self, text: str) -> str:
+        """Extract curtain device name from a command."""
+        import re
+
+        name = text
+        for stop in ("，", "。", "；", ";", "和", "以及"):
+            if stop in name:
+                name = name[:name.find(stop)]
+
+        name = re.sub(r"\d{1,3}\s*%?", "", name)
+        cleanup_words = (
+            "请", "帮我", "把", "将", "给我", "一下",
+            "打开", "开启", "拉开", "开", "关闭", "关上", "拉上", "合上", "关",
+            "停止", "暂停", "停下", "设置到", "设置", "设为", "调到",
+            "开到", "到", "位置", "开度", "状态", "情况", "百分之",
+        )
+        for word in cleanup_words:
+            name = name.replace(word, "")
+
+        name = name.strip()
+        return name or "窗帘"
+
     async def _llm_parse_intents(self, event: AstrMessageEvent, user_query: str) -> list[dict]:
         """使用 LLM 解析意图"""
         try:
@@ -601,6 +766,9 @@ class SmartHomePlugin(Star):
             "device_on": r"\[打开设备[:：](.+?)\]",
             "device_off": r"\[关闭设备[:：](.+?)\]",
             "device_query": r"\[设备状态查询\]",
+            "curtain_control": r"\[窗帘控制[:：](.+?)[:：](打开|关闭|停止|暂停|open|close|stop)\]",
+            "curtain_position": r"\[窗帘位置[:：](.+?)[:：](\d{1,3})\]",
+            "curtain_query": r"\[窗帘状态查询(?:[:：](.+?))?\]",
             "ac_control": r"\[空调控制[:：](.+?)\]",
             "ac_temp": r"\[空调温度[:：](.+?)\]",
             "weather_query": r"\[天气查询\]",
@@ -623,6 +791,14 @@ class SmartHomePlugin(Star):
                         intent_item["hours"] = int(groups[0])
                     elif intent in ("device_on", "device_off"):
                         intent_item["device"] = groups[0].strip()
+                    elif intent == "curtain_control":
+                        intent_item["device"] = groups[0].strip()
+                        intent_item["action"] = self._normalize_curtain_action(groups[1].strip())
+                    elif intent == "curtain_position":
+                        intent_item["device"] = groups[0].strip()
+                        intent_item["position"] = self._normalize_curtain_position(groups[1].strip())
+                    elif intent == "curtain_query":
+                        intent_item["device"] = groups[0].strip() if groups[0] else "窗帘"
                     elif intent == "ac_control":
                         intent_item["mode"] = groups[0].strip()
                     elif intent == "ac_temp":
@@ -648,6 +824,7 @@ class SmartHomePlugin(Star):
     # 需要权限控制的意图列表
     PROTECTED_INTENTS = {
         "device_on", "device_off", "device_query",
+        "curtain_control", "curtain_position", "curtain_query",
         "ac_control", "ac_temp",
         "sensor_query", "temperature_query", "humidity_query",
         "monitor_start", "monitor_stop",
@@ -729,6 +906,36 @@ class SmartHomePlugin(Star):
                         results["data"]["devices"] = data
                     else:
                         results["errors"].append("获取设备状态失败")
+
+                elif intent == "curtain_control":
+                    device_name = intent_item.get("device", "窗帘")
+                    action = intent_item.get("action", "")
+                    success = await self._control_curtain(device_name, action)
+                    action_text = self._format_curtain_action(action)
+                    if success:
+                        results["actions"].append(f"已{action_text} {device_name}")
+                    else:
+                        results["errors"].append(f"{action_text} {device_name} 失败")
+
+                elif intent == "curtain_position":
+                    device_name = intent_item.get("device", "窗帘")
+                    position = intent_item.get("position")
+                    if position is None:
+                        results["errors"].append(f"{device_name} 位置值无效")
+                        continue
+                    success = await self._set_curtain_position(device_name, position)
+                    if success:
+                        results["actions"].append(f"已将 {device_name} 设置到 {position}%")
+                    else:
+                        results["errors"].append(f"设置 {device_name} 位置失败")
+
+                elif intent == "curtain_query":
+                    device_name = intent_item.get("device", "")
+                    data = await self._get_curtains_data(device_name)
+                    if data:
+                        results["data"]["curtains"] = data
+                    else:
+                        results["errors"].append("获取窗帘状态失败")
 
                 elif intent == "ac_control":
                     device_name = intent_item.get("device", "空调")
@@ -940,11 +1147,148 @@ class SmartHomePlugin(Star):
                 state = await self.ha_client.get_entity_state(entity_id)
                 if state:
                     dev_state = state.get("state", "unknown")
-                    state_map = {"on": "开启", "off": "关闭", "cool": "制冷", "heat": "制热"}
+                    state_map = {
+                        "on": "开启",
+                        "off": "关闭",
+                        "open": "打开",
+                        "opening": "正在打开",
+                        "closed": "关闭",
+                        "closing": "正在关闭",
+                        "cool": "制冷",
+                        "heat": "制热",
+                    }
                     state_text = state_map.get(dev_state, dev_state)
                     results.append(f"{name}: {state_text}")
 
         return "\n".join(results) if results else None
+
+    def _is_curtain_device(self, device: dict) -> bool:
+        """Check whether a configured device is a cover."""
+        if not isinstance(device, dict):
+            return False
+        template_key = device.get("__template_key", "")
+        entity_id = device.get("entity_id", "")
+        return template_key in ("curtain", "cover") or entity_id.startswith("cover.")
+
+    def _get_curtain_by_name(self, name: str) -> Optional[dict]:
+        """Find a curtain device by name."""
+        name_lower = name.lower().strip()
+        curtains = [d for d in self.switches if self._is_curtain_device(d)]
+        if not curtains:
+            return None
+
+        if name_lower and name_lower not in ("窗帘", "百叶", "卷帘"):
+            for curtain in curtains:
+                curtain_name = curtain.get("name", "").lower()
+                entity_id = curtain.get("entity_id", "").lower()
+                if name_lower in curtain_name or name_lower in entity_id:
+                    return curtain
+            return None
+
+        return curtains[0]
+
+    def _normalize_curtain_action(self, action: str) -> str:
+        """Normalize curtain action text."""
+        action = (action or "").lower()
+        action_map = {
+            "打开": "open",
+            "开启": "open",
+            "拉开": "open",
+            "开": "open",
+            "open": "open",
+            "关闭": "close",
+            "关上": "close",
+            "拉上": "close",
+            "关": "close",
+            "close": "close",
+            "停止": "stop",
+            "暂停": "stop",
+            "stop": "stop",
+        }
+        return action_map.get(action, action)
+
+    def _format_curtain_action(self, action: str) -> str:
+        """Format curtain action for user-facing messages."""
+        action_text = {
+            "open": "打开",
+            "close": "关闭",
+            "stop": "停止",
+        }
+        return action_text.get(action, action)
+
+    async def _get_curtains_data(self, device_name: str = "") -> Optional[str]:
+        """Get curtain status data."""
+        if not self.ha_client or not self.switches:
+            return None
+
+        if device_name:
+            curtains = [self._get_curtain_by_name(device_name)]
+        else:
+            curtains = [d for d in self.switches if self._is_curtain_device(d)]
+
+        results = []
+        state_map = {
+            "open": "打开",
+            "opening": "正在打开",
+            "closed": "关闭",
+            "closing": "正在关闭",
+            "unknown": "未知",
+            "unavailable": "不可用",
+        }
+        for curtain in curtains:
+            if not curtain:
+                continue
+            entity_id = curtain.get("entity_id", "")
+            name = curtain.get("name", entity_id)
+            state = await self.ha_client.get_entity_state(entity_id)
+            if not state:
+                results.append(f"{name}: 获取失败")
+                continue
+
+            cover_state = state.get("state", "unknown")
+            state_text = state_map.get(cover_state, cover_state)
+            position = state.get("attributes", {}).get("current_position")
+            if position is not None:
+                results.append(f"{name}: {state_text} ({position}%)")
+            else:
+                results.append(f"{name}: {state_text}")
+
+        return "\n".join(results) if results else None
+
+    async def _control_curtain(self, device_name: str, action: str) -> bool:
+        """Control a curtain device."""
+        if not self.ha_client:
+            return False
+
+        curtain = self._get_curtain_by_name(device_name)
+        if not curtain:
+            logger.warning(f"Curtain device not found: {device_name}")
+            return False
+
+        entity_id = curtain.get("entity_id", "")
+        action = self._normalize_curtain_action(action)
+        if action == "open":
+            return await self.ha_client.open_cover(entity_id)
+        if action == "close":
+            return await self.ha_client.close_cover(entity_id)
+        if action == "stop":
+            return await self.ha_client.stop_cover(entity_id)
+
+        logger.warning(f"Unsupported curtain action: {action}")
+        return False
+
+    async def _set_curtain_position(self, device_name: str, position: int) -> bool:
+        """Set a curtain position."""
+        if not self.ha_client or position is None:
+            return False
+
+        curtain = self._get_curtain_by_name(device_name)
+        if not curtain:
+            logger.warning(f"Curtain device not found: {device_name}")
+            return False
+
+        entity_id = curtain.get("entity_id", "")
+        return await self.ha_client.set_cover_position(entity_id, position)
 
     async def _control_device(self, device_name: str, action: str) -> bool:
         """控制设备"""
